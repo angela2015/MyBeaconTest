@@ -3,9 +3,13 @@ package com.sensoro.experience.tool;
 import android.animation.Animator;
 import android.animation.Animator.AnimatorListener;
 import android.animation.ObjectAnimator;
+import android.app.Activity;
+import android.media.AudioManager;
+import android.media.SoundPool;
 import android.os.Bundle;
 import android.support.v4.app.Fragment;
 import android.util.DisplayMetrics;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.MenuItem;
 import android.view.View;
@@ -32,24 +36,40 @@ public class RangeFragment extends Fragment implements OnBeaconChangeListener {
 	RelativeLayout nearLayout;
 	RelativeLayout farLayout;
 	TTFIcon userIcon;
-
+	SoundPool soundPool;
+	String TAG="TAG";
 	int[] immediatePostion;
 	int[] nearPosition;
 	int[] farPosition;
 	int[] unknowPosition;
+	int soundId;
+	boolean isPlay;
 	TranslateAnimation animation;
 
 	@Override
-	public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
-		return inflater.inflate(R.layout.fragment_range, container, false);
+	public void onAttach(Activity activity) {
+		super.onAttach(activity);
+		Log.d(TAG, "onAttach: "+activity);
 	}
 
+	@Override
+	public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
+		Log.d(TAG, "onCreateView: ");
+		return inflater.inflate(R.layout.fragment_range, container, false);
+	}
+	
 	@Override
 	public void onActivityCreated(Bundle savedInstanceState) {
 		initCtrl();
 		setTitle();
+		Log.d(TAG, "onActivityCreated: "+getActivity());
+		soundPool=new SoundPool(1, AudioManager.STREAM_MUSIC,0);
+		soundId = soundPool.load(getActivity(), R.raw.slow,1);
+		isPlay=false;
 		super.onActivityCreated(savedInstanceState);
 	}
+
+
 
 	private void setTitle() {
 		activity.setTitle(R.string.back);
@@ -62,7 +82,19 @@ public class RangeFragment extends Fragment implements OnBeaconChangeListener {
 		changePos(beacon.getProximity());
 	}
 
+	@Override
+	public void onDestroyView() {
+		soundPool.release();
+		super.onDestroyView();
+
+	}
+
 	private void changePos(Proximity proximity) {
+
+		if(isPlay==true) {
+			soundPool.stop(soundId);
+			isPlay=false;
+		}
 
 		if (beacon == null) {
 			return;
@@ -70,20 +102,30 @@ public class RangeFragment extends Fragment implements OnBeaconChangeListener {
 		if (beacon.getProximity() == proximity) {
 			return;
 		}
+
 		float fromX = userIcon.getX();
 		float fromY = userIcon.getY();
 		float toX = 0;
 		float toY = 0;
-		if (proximity == Proximity.PROXIMITY_IMMEDIATE) {
-			toX = immediatePostion[0];
-			toY = immediatePostion[1];
-		} else if (proximity == Proximity.PROXIMITY_NEAR) {
-			toX = nearPosition[0];
-			toY = nearPosition[1];
-		} else if (proximity == Proximity.PROXIMITY_FAR) {
-			toX = farPosition[0];
-			toY = farPosition[1];
-		}
+
+			if (proximity == Proximity.PROXIMITY_IMMEDIATE) {
+				toX = immediatePostion[0];
+				toY = immediatePostion[1];
+				soundPool.play(soundId, 1.0f, 1.0f, 1, -1, 2);
+				isPlay = true;
+
+			} else if (proximity == Proximity.PROXIMITY_NEAR) {
+				toX = nearPosition[0];
+				toY = nearPosition[1];
+				soundPool.play(soundId, 1.0f, 1.0f, 1, -1, 1.5f);
+				isPlay = true;
+			} else if (proximity == Proximity.PROXIMITY_FAR) {
+				toX = farPosition[0];
+				toY = farPosition[1];
+				soundPool.play(soundId, 1.0f, 1.0f, 1, -1, 1);
+				isPlay = true;
+			}
+
 		ObjectAnimator animator = ObjectAnimator.ofFloat(userIcon, "translationY", fromY, toY);
 		animator.setInterpolator(new AccelerateDecelerateInterpolator());
 		animator.setDuration(500);
@@ -221,6 +263,30 @@ public class RangeFragment extends Fragment implements OnBeaconChangeListener {
 	public void onResume() {
 		updateView(beacon);
 		registerBeaconChangeListener();
+		soundPool.setOnLoadCompleteListener(new SoundPool.OnLoadCompleteListener() {
+			@Override
+			public void onLoadComplete(SoundPool soundPool, int sampleId, int status) {
+				Log.d(TAG, "onLoadComplete: " + sampleId + " status" + status);
+				switch (beacon.getProximity())
+				{
+					case PROXIMITY_FAR:
+						soundPool.play(soundId, 1.0f, 1.0f, 1, -1, 1);
+						isPlay = true;
+						break;
+					case PROXIMITY_NEAR:
+						soundPool.play(soundId, 1.0f, 1.0f, 1, -1, 1.5f);
+						isPlay = true;
+						break;
+					case PROXIMITY_IMMEDIATE:
+						soundPool.play(soundId, 1.0f, 1.0f, 1, -1, 2);
+						isPlay = true;
+						break;
+					default:
+						break;
+				}
+
+			}
+		});
 		super.onResume();
 	}
 

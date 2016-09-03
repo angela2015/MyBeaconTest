@@ -1,5 +1,6 @@
 package com.sensoro.experience.tool;
 
+import com.iflytek.cloud.SpeechUtility;
 import com.sensoro.cloud.SensoroManager;
 
 import android.app.Application;
@@ -13,6 +14,8 @@ public class MyApp extends Application {
 	@Override
 	public void onCreate() {
 		initSensoro();
+		SpeechUtility.createUtility(MyApp.this, "appid=" + getString(R.string.app_id));
+
 		super.onCreate();
 	}
 

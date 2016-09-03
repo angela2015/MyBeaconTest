@@ -115,5 +115,7 @@
     <orderEntry type="library" exported="" scope="TEST" name="junit-4.12" level="project" />
     <orderEntry type="library" exported="" name="sensoro-scanner-1.0.1" level="project" />
     <orderEntry type="library" exported="" name="sensorocloud-4.1.1-1" level="project" />
+    <orderEntry type="library" exported="" name="Msc" level="project" />
+    <orderEntry type="library" exported="" name="Sunflower" level="project" />
   </component>
 </module>

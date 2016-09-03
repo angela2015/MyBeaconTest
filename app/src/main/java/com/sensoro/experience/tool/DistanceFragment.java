@@ -78,6 +78,10 @@ public class DistanceFragment extends Fragment implements OnBeaconChangeListener
 		if(mTts.isSpeaking()){
 			mTts.stopSpeaking();
 		}
+		if(mSpeechUnderstander.isUnderstanding()){// 开始前检查状态
+			mSpeechUnderstander.stopUnderstanding();
+			showTip("停止录音");
+		}
 		super.onPause();
 	}
 
@@ -142,6 +146,10 @@ public class DistanceFragment extends Fragment implements OnBeaconChangeListener
 		public void onCompleted(SpeechError error) {
 			if (error == null) {
 				showTip("播放完成");
+				if(isPlayed==false)
+				{
+					isPlayed=true;
+				}
 			} else if (error != null) {
 				showTip(error.getPlainDescription(true));
 			}
@@ -194,7 +202,7 @@ public class DistanceFragment extends Fragment implements OnBeaconChangeListener
 						}
 					}else if(jsonObject==null)
 					{
-						mTts.startSpeaking("我不太明白你在说些什么",mTtsListener);
+						mTts.startSpeaking("Sorry,I don't understand",mTtsListener);
 					}
 
 
@@ -235,7 +243,7 @@ public class DistanceFragment extends Fragment implements OnBeaconChangeListener
 				}
 			} else {
 				showTip("识别结果不正确。");
-				mTts.startSpeaking("我不太明白你在说些什么",mTtsListener);
+				mTts.startSpeaking("Sorry,I don't understand",mTtsListener);
 
 			}
 		}
@@ -262,7 +270,7 @@ public class DistanceFragment extends Fragment implements OnBeaconChangeListener
 		public void onError(SpeechError error) {
 			Log.e(TAG, "onError: " );
 			showTip(error.getPlainDescription(true));
-			mTts.startSpeaking("我没有听清你在说什么",mTtsListener);
+			mTts.startSpeaking("I didn't catch what you said",mTtsListener);
 		}
 
 		@Override
@@ -301,11 +309,12 @@ public class DistanceFragment extends Fragment implements OnBeaconChangeListener
 
 		mTts = SpeechSynthesizer.createSynthesizer(getActivity(), mTtsInitListener);
 		mSpeechUnderstander = SpeechUnderstander.createUnderstander(getActivity(), null);
-		mSpeechUnderstander.setParameter(SpeechConstant.LANGUAGE, "zh_cn");
+		/*mSpeechUnderstander.setParameter(SpeechConstant.LANGUAGE, "zh_cn");*/
+		mSpeechUnderstander.setParameter(SpeechConstant.LANGUAGE, "en_us");
 		mSpeechUnderstander.setParameter(SpeechConstant.VAD_BOS, mSharedPreferences.getString("understander_vadbos_preference", "4000"));
 
 		// 设置语音后端点:后端点静音检测时间，即用户停止说话多长时间内即认为不再输入， 自动停止录音
-		mSpeechUnderstander.setParameter(SpeechConstant.VAD_EOS, mSharedPreferences.getString("understander_vadeos_preference", "·1000"));
+		mSpeechUnderstander.setParameter(SpeechConstant.VAD_EOS, mSharedPreferences.getString("understander_vadeos_preference", "1000"));
 
 		// 设置标点符号，默认：1（有标点）
 		//mSpeechUnderstander.setParameter(SpeechConstant.ASR_PTT, mSharedPreferences.getString("understander_punc_preference", "1"));
@@ -315,7 +324,7 @@ public class DistanceFragment extends Fragment implements OnBeaconChangeListener
 		//mSpeechUnderstander.setParameter(SpeechConstant.AUDIO_FORMAT, "wav");
 		//mSpeechUnderstander.setParameter(SpeechConstant.ASR_AUDIO_PATH, Environment.getExternalStorageDirectory()+"/msc/sud.wav");
 
-		mTts.setParameter(SpeechConstant.VOICE_NAME, "xiaoyan"); //设置发音人
+		mTts.setParameter(SpeechConstant.VOICE_NAME, "catherine"); //设置发音人
 		mTts.setParameter(SpeechConstant.SPEED, "50");//设置语速
 		mTts.setParameter(SpeechConstant.VOLUME, "80");//设置音量，范围 0~100
 		mTts.setParameter(SpeechConstant.ENGINE_TYPE, SpeechConstant.TYPE_CLOUD); //设置云端
@@ -367,24 +376,42 @@ public class DistanceFragment extends Fragment implements OnBeaconChangeListener
 				soundPool.play(soundId1,1.0f,1.0f,1,-1,playRate);
 				break;
 			case 3:
-				if(isPlayed==false){
-					soundPool.stop(soundId1);
-					//mTts.startSpeaking(getString(R.string.tts_text), mTtsListener);
-					if(mSpeechUnderstander.isUnderstanding()){// 开始前检查状态
-						mSpeechUnderstander.stopUnderstanding();
-						showTip("停止录音");
-					}else {
-						ret = mSpeechUnderstander.startUnderstanding(mSpeechUnderstanderListener);
-						if(ret != 0){
-							showTip("语义理解失败,错误码:"	+ ret);
-						}else {
-							showTip("请开始说话！");
+				if(mTts.isSpeaking())
+					break;
+				else{
+					if(isPlayed==false){
+						soundPool.stop(soundId1);
+
+						mTts.startSpeaking(getString(R.string.tts_intro),mTtsListener);
+
+						//mTts.startSpeaking(getString(R.string.tts_text), mTtsListener);
+
+					}else if(isPlayed==true){
+						soundPool.stop(soundId1);
+						if(mSpeechUnderstander.isUnderstanding())
+							break;
+						else if(!mSpeechUnderstander.isUnderstanding()){
+							ret = mSpeechUnderstander.startUnderstanding(mSpeechUnderstanderListener);
+							if(ret != 0){
+								showTip("语义理解失败,错误码:"	+ ret);
+							}else {
+								showTip("请开始说话！");
+							}
 						}
+						/*if(mSpeechUnderstander.isUnderstanding()){// 开始前检查状态
+							mSpeechUnderstander.stopUnderstanding();
+							showTip("停止录音");
+						}else {
+							ret = mSpeechUnderstander.startUnderstanding(mSpeechUnderstanderListener);
+							if(ret != 0){
+								showTip("语义理解失败,错误码:"	+ ret);
+							}else {
+								showTip("请开始说话！");
+							}
+						}*/
 					}
-					isPlayed=true;
-				}else {
-					soundPool.stop(soundId1);
 				}
+
 				break;
 			case 4:
 				if(mTts.isSpeaking()){
@@ -470,6 +497,10 @@ public class DistanceFragment extends Fragment implements OnBeaconChangeListener
 		soundPool.autoPause();
 		if(mTts.isSpeaking()){
 			mTts.stopSpeaking();
+		}
+		if(mSpeechUnderstander.isUnderstanding()){// 开始前检查状态
+			mSpeechUnderstander.stopUnderstanding();
+			showTip("停止录音");
 		}
 		super.onStop();
 	}

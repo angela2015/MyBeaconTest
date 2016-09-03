@@ -61,6 +61,7 @@
     <string name="tts_toast_format" formatted="false">缓冲进度为%d%%，播放进度为%d%%</string>
     <string name="tts_text">奔驰轿车家族的最新成员是世界上第一辆拥有自动空气控制系统的生产型轿车。其独特的“电子鼻”系统采用了专门的空气品质传感器，当车外的污染超标时，空气品质传感器立刻向系统计算机发出信号，自动关闭通风系统中的循环风门。启动高效活性生物质碳过滤器，把空气交净化，使车厢内空气保持清爽宜人。该车还采用雨量感应式水拔，能因雨量的多寡自动调节空气保持水拔速度，此外，左右两侧独立设定的空调自动恒温系统更尽人意，倘若车内因太阳曝晒使温度上升，阳光感应器会自动启动风扇加强冷气效果，便驾车者集中精神驾驶。 </string>
     <string name="tts_bye">很高兴你能来</string>
+    <string name="tts_intro">Hello!I‘m the mercedes  GLC 260 ,A medium-sized SUV car,What do you want to know about me?</string>
 
     <string-array name="stream_entries">
         <item>通话</item>

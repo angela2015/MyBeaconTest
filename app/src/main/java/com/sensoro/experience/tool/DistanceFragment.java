@@ -18,9 +18,11 @@ import android.widget.EditText;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
+import com.google.gson.annotations.JsonAdapter;
 import com.iflytek.cloud.ErrorCode;
 import com.iflytek.cloud.InitListener;
 import com.iflytek.cloud.SpeechConstant;
@@ -40,6 +42,8 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.text.DecimalFormat;
 import java.util.ArrayList;
+import java.util.List;
+
 import com.iflytek.cloud.SynthesizerListener;
 import com.iflytek.cloud.InitListener;
 import com.iflytek.cloud.SpeechUnderstander;
@@ -68,6 +72,14 @@ public class DistanceFragment extends Fragment implements OnBeaconChangeListener
 	private float preDistance=0;
 	private float curDistance=0;
 	private int process;
+
+	@Override
+	public void onPause() {
+		if(mTts.isSpeaking()){
+			mTts.stopSpeaking();
+		}
+		super.onPause();
+	}
 
 	//语义理解
 	private SpeechUnderstander mSpeechUnderstander;
@@ -130,15 +142,15 @@ public class DistanceFragment extends Fragment implements OnBeaconChangeListener
 		public void onCompleted(SpeechError error) {
 			if (error == null) {
 				showTip("播放完成");
-				isPlaying=true;
-				ret = mSpeechUnderstander.startUnderstanding(mSpeechUnderstanderListener);
-				if(ret != 0){
-					showTip("语义理解失败,错误码:"	+ ret);
-				}else {
-					showTip("请开始说话！");
-				}
 			} else if (error != null) {
 				showTip(error.getPlainDescription(true));
+			}
+			isPlaying=false;
+			ret = mSpeechUnderstander.startUnderstanding(mSpeechUnderstanderListener);
+			if(ret != 0){
+				showTip("语义理解失败,错误码:"	+ ret);
+			}else {
+				showTip("请开始说话！");
 			}
 		}
 
@@ -166,8 +178,26 @@ public class DistanceFragment extends Fragment implements OnBeaconChangeListener
 					mUnderstanderText.setText(text);
 					JsonElement rootEle = new JsonParser().parse(text);
 					JsonObject jsonObject = rootEle.getAsJsonObject().getAsJsonObject("answer");
-					showTip(jsonObject.get("test").getAsString());
-					mTts.startSpeaking(jsonObject.get("test").getAsString(),mTtsListener);
+					JsonArray jsonArr = rootEle.getAsJsonObject().getAsJsonArray("moreResults");
+					if(jsonObject!=null){
+						showTip(jsonObject.get("text").getAsString());
+						Log.d(TAG, "onResult: jsonObject: "+jsonObject.get("text").getAsString());
+						mTts.startSpeaking(jsonObject.get("text").getAsString(),mTtsListener);
+					}else  if(jsonArr!=null){
+						List<String> rsList = new ArrayList<String>(jsonArr.size());
+						for(JsonElement objElem:jsonArr){
+							JsonObject jObj = objElem.getAsJsonObject().getAsJsonObject("answer");
+							rsList.add(jObj.get("text").getAsString());
+						}
+						for(String s: rsList){
+							Log.d(TAG, "onResult: rsList:"+s);
+						}
+					}else if(jsonObject==null)
+					{
+						mTts.startSpeaking("我不太明白你在说些什么",mTtsListener);
+					}
+
+
 
 					/*InputStream json1   =   new ByteArrayInputStream(text.getBytes());
 					JsonReader reader = new JsonReader(new InputStreamReader(json1));
@@ -205,6 +235,8 @@ public class DistanceFragment extends Fragment implements OnBeaconChangeListener
 				}
 			} else {
 				showTip("识别结果不正确。");
+				mTts.startSpeaking("我不太明白你在说些什么",mTtsListener);
+
 			}
 		}
 
@@ -228,7 +260,9 @@ public class DistanceFragment extends Fragment implements OnBeaconChangeListener
 
 		@Override
 		public void onError(SpeechError error) {
+			Log.e(TAG, "onError: " );
 			showTip(error.getPlainDescription(true));
+			mTts.startSpeaking("我没有听清你在说什么",mTtsListener);
 		}
 
 		@Override
@@ -245,29 +279,6 @@ public class DistanceFragment extends Fragment implements OnBeaconChangeListener
 
 	@Override
 	public void onAttach(Activity activity) {
-
-
-		mTts = SpeechSynthesizer.createSynthesizer(getActivity(), mTtsInitListener);
-		mSpeechUnderstander = SpeechUnderstander.createUnderstander(getActivity(), null);
-		mSpeechUnderstander.setParameter(SpeechConstant.LANGUAGE, "zh_cn");
-		//mSpeechUnderstander.setParameter(SpeechConstant.VAD_BOS, mSharedPreferences.getString("understander_vadbos_preference", "4000"));
-
-		// 设置语音后端点:后端点静音检测时间，即用户停止说话多长时间内即认为不再输入， 自动停止录音
-		//mSpeechUnderstander.setParameter(SpeechConstant.VAD_EOS, mSharedPreferences.getString("understander_vadeos_preference", "1000"));
-
-		// 设置标点符号，默认：1（有标点）
-		//mSpeechUnderstander.setParameter(SpeechConstant.ASR_PTT, mSharedPreferences.getString("understander_punc_preference", "1"));
-
-		// 设置音频保存路径，保存音频格式支持pcm、wav，设置路径为sd卡请注意WRITE_EXTERNAL_STORAGE权限
-		// 注：AUDIO_FORMAT参数语记需要更新版本才能生效
-		//mSpeechUnderstander.setParameter(SpeechConstant.AUDIO_FORMAT, "wav");
-		//mSpeechUnderstander.setParameter(SpeechConstant.ASR_AUDIO_PATH, Environment.getExternalStorageDirectory()+"/msc/sud.wav");
-
-		mTts.setParameter(SpeechConstant.VOICE_NAME, "xiaoyan"); //设置发音人
-		mTts.setParameter(SpeechConstant.SPEED, "50");//设置语速
-		mTts.setParameter(SpeechConstant.VOLUME, "80");//设置音量，范围 0~100
-		mTts.setParameter(SpeechConstant.ENGINE_TYPE, SpeechConstant.TYPE_CLOUD); //设置云端
-		mTts.setParameter(SpeechConstant.TTS_AUDIO_PATH, "./sdcard/iflytek.pcm");
 		super.onAttach(activity);
 	}
 
@@ -287,6 +298,30 @@ public class DistanceFragment extends Fragment implements OnBeaconChangeListener
 		isPlayed =false;
 		isBye = false;
 		isPlaying = false;
+
+		mTts = SpeechSynthesizer.createSynthesizer(getActivity(), mTtsInitListener);
+		mSpeechUnderstander = SpeechUnderstander.createUnderstander(getActivity(), null);
+		mSpeechUnderstander.setParameter(SpeechConstant.LANGUAGE, "zh_cn");
+		mSpeechUnderstander.setParameter(SpeechConstant.VAD_BOS, mSharedPreferences.getString("understander_vadbos_preference", "4000"));
+
+		// 设置语音后端点:后端点静音检测时间，即用户停止说话多长时间内即认为不再输入， 自动停止录音
+		mSpeechUnderstander.setParameter(SpeechConstant.VAD_EOS, mSharedPreferences.getString("understander_vadeos_preference", "·1000"));
+
+		// 设置标点符号，默认：1（有标点）
+		//mSpeechUnderstander.setParameter(SpeechConstant.ASR_PTT, mSharedPreferences.getString("understander_punc_preference", "1"));
+
+		// 设置音频保存路径，保存音频格式支持pcm、wav，设置路径为sd卡请注意WRITE_EXTERNAL_STORAGE权限
+		// 注：AUDIO_FORMAT参数语记需要更新版本才能生效
+		//mSpeechUnderstander.setParameter(SpeechConstant.AUDIO_FORMAT, "wav");
+		//mSpeechUnderstander.setParameter(SpeechConstant.ASR_AUDIO_PATH, Environment.getExternalStorageDirectory()+"/msc/sud.wav");
+
+		mTts.setParameter(SpeechConstant.VOICE_NAME, "xiaoyan"); //设置发音人
+		mTts.setParameter(SpeechConstant.SPEED, "50");//设置语速
+		mTts.setParameter(SpeechConstant.VOLUME, "80");//设置音量，范围 0~100
+		mTts.setParameter(SpeechConstant.ENGINE_TYPE, SpeechConstant.TYPE_CLOUD); //设置云端
+		mTts.setParameter(SpeechConstant.TTS_AUDIO_PATH, "./sdcard/iflytek.pcm");
+
+
 		super.onActivityCreated(savedInstanceState);
 	}
 
@@ -409,6 +444,7 @@ public class DistanceFragment extends Fragment implements OnBeaconChangeListener
 		distanceTextView = (TextView) activity.findViewById(R.id.fragment_distance_tv);
 		mUnderstanderText = (EditText)activity.findViewById(R.id.understander_text);
 		mToast = Toast.makeText(getActivity(), "", Toast.LENGTH_SHORT);
+		mSharedPreferences = getActivity().getSharedPreferences("com.iflytek.setting", Activity.MODE_PRIVATE);
 
 	}
 
@@ -422,7 +458,7 @@ public class DistanceFragment extends Fragment implements OnBeaconChangeListener
 			public void onLoadComplete(SoundPool soundPool, int sampleId, int status) {
 				playRate = (float) (1/ beacon.getAccuracy());
 				Log.d(TAG, "onLoadComplete: Rate"+playRate);
-				soundPool.play(soundId1,1.0f,1.0f,1,-1,playRate);
+				//soundPool.play(soundId1,1.0f,1.0f,1,-1,playRate);
 			}
 		});
 		super.onResume();
@@ -432,6 +468,9 @@ public class DistanceFragment extends Fragment implements OnBeaconChangeListener
 	public void onStop() {
 		unregisterBeaconChangeListener();
 		soundPool.autoPause();
+		if(mTts.isSpeaking()){
+			mTts.stopSpeaking();
+		}
 		super.onStop();
 	}
 

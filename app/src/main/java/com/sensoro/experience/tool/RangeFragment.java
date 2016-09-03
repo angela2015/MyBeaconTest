@@ -18,7 +18,13 @@ import android.view.animation.AccelerateDecelerateInterpolator;
 import android.view.animation.TranslateAnimation;
 import android.widget.RelativeLayout;
 import android.widget.RelativeLayout.LayoutParams;
-
+import android.widget.Toast;
+import com.iflytek.cloud.ErrorCode;
+import com.iflytek.cloud.InitListener;
+import com.iflytek.cloud.SpeechConstant;
+import com.iflytek.cloud.SpeechError;
+import com.iflytek.cloud.SpeechSynthesizer;
+import com.iflytek.cloud.SynthesizerListener;
 import com.sensoro.beacon.kit.Beacon;
 import com.sensoro.beacon.kit.Beacon.Proximity;
 import com.sensoro.experience.tool.MainActivity.OnBeaconChangeListener;
@@ -37,18 +43,103 @@ public class RangeFragment extends Fragment implements OnBeaconChangeListener {
 	RelativeLayout farLayout;
 	TTFIcon userIcon;
 	SoundPool soundPool;
-	String TAG="TAG";
+	float playRate;
+	String TAG="RangeFragmentTAG";
 	int[] immediatePostion;
 	int[] nearPosition;
 	int[] farPosition;
 	int[] unknowPosition;
 	int soundId;
-	boolean isPlay;
+	boolean isPlayed;
+	private SpeechSynthesizer mTts;
+	private Toast mToast;
+	// 缓冲进度
+	private int mPercentForBuffering = 0;
+	// 播放进度
+	private int mPercentForPlaying = 0;
 	TranslateAnimation animation;
+	Beacon.Proximity preProximity;
 
+
+	/**
+	 * 初始化监听。
+	 */
+	private InitListener mTtsInitListener = new InitListener() {
+		@Override
+		public void onInit(int code) {
+			Log.d(TAG, "InitListener init() code = " + code);
+			if (code != ErrorCode.SUCCESS) {
+				showTip("初始化失败,错误码："+code);
+			} else {
+				// 初始化成功，之后可以调用startSpeaking方法
+				// 注：有的开发者在onCreate方法中创建完合成对象之后马上就调用startSpeaking进行合成，
+				// 正确的做法是将onCreate中的startSpeaking调用移至这里
+			}
+		}
+	};
+
+	private SynthesizerListener mTtsListener = new SynthesizerListener() {
+
+		@Override
+		public void onSpeakBegin() {
+			showTip("开始播放");
+		}
+
+		@Override
+		public void onSpeakPaused() {
+			showTip("暂停播放");
+		}
+
+		@Override
+		public void onSpeakResumed() {
+			showTip("继续播放");
+		}
+
+		@Override
+		public void onBufferProgress(int percent, int beginPos, int endPos,
+									 String info) {
+			// 合成进度
+			mPercentForBuffering = percent;
+			showTip(String.format(getString(R.string.tts_toast_format),
+					mPercentForBuffering, mPercentForPlaying));
+		}
+
+		@Override
+		public void onSpeakProgress(int percent, int beginPos, int endPos) {
+			// 播放进度
+			mPercentForPlaying = percent;
+			showTip(String.format(getString(R.string.tts_toast_format),
+					mPercentForBuffering, mPercentForPlaying));
+		}
+
+		@Override
+		public void onCompleted(SpeechError error) {
+			if (error == null) {
+				showTip("播放完成");
+			} else if (error != null) {
+				showTip(error.getPlainDescription(true));
+			}
+		}
+
+		@Override
+		public void onEvent(int eventType, int arg1, int arg2, Bundle obj) {
+			// 以下代码用于获取与云端的会话id，当业务出错时将会话id提供给技术支持人员，可用于查询会话日志，定位出错原因
+			// 若使用本地能力，会话id为null
+			//	if (SpeechEvent.EVENT_SESSION_ID == eventType) {
+			//		String sid = obj.getString(SpeechEvent.KEY_EVENT_SESSION_ID);
+			//		Log.d(TAG, "session id =" + sid);
+			//	}
+		}
+	};
 	@Override
 	public void onAttach(Activity activity) {
 		super.onAttach(activity);
+		mTts = SpeechSynthesizer.createSynthesizer(getActivity(), mTtsInitListener);
+		mTts.setParameter(SpeechConstant.VOICE_NAME, "xiaoyan"); //设置发音人
+		mTts.setParameter(SpeechConstant.SPEED, "50");//设置语速
+		mTts.setParameter(SpeechConstant.VOLUME, "80");//设置音量，范围 0~100
+		mTts.setParameter(SpeechConstant.ENGINE_TYPE, SpeechConstant.TYPE_CLOUD); //设置云端
+		mTts.setParameter(SpeechConstant.TTS_AUDIO_PATH, "./sdcard/iflytek.pcm");
 		Log.d(TAG, "onAttach: "+activity);
 	}
 
@@ -65,7 +156,7 @@ public class RangeFragment extends Fragment implements OnBeaconChangeListener {
 		Log.d(TAG, "onActivityCreated: "+getActivity());
 		soundPool=new SoundPool(1, AudioManager.STREAM_MUSIC,0);
 		soundId = soundPool.load(getActivity(), R.raw.slow,1);
-		isPlay=false;
+		isPlayed=false;
 		super.onActivityCreated(savedInstanceState);
 	}
 
@@ -91,10 +182,16 @@ public class RangeFragment extends Fragment implements OnBeaconChangeListener {
 
 	private void changePos(Proximity proximity) {
 
-		if(isPlay==true) {
-			soundPool.stop(soundId);
-			isPlay=false;
+		//playRate = (float) (1/ beacon.getAccuracy());
+		if(beacon.getAccuracy()>4.0f){
+			playRate=0.5f;
+		}else if(beacon.getAccuracy()>=2.0f&&beacon.getAccuracy()<=4.0f){
+			playRate=1.5f;
 		}
+		/*if(isPlayed==true) {
+			soundPool.pause(soundId);
+			isPlayed=false;
+		}*/
 
 		if (beacon == null) {
 			return;
@@ -111,19 +208,33 @@ public class RangeFragment extends Fragment implements OnBeaconChangeListener {
 			if (proximity == Proximity.PROXIMITY_IMMEDIATE) {
 				toX = immediatePostion[0];
 				toY = immediatePostion[1];
-				soundPool.play(soundId, 1.0f, 1.0f, 1, -1, 2);
-				isPlay = true;
+				if(preProximity==Proximity.PROXIMITY_NEAR && isPlayed==false)
+				{
+					soundPool.autoPause();
+					mTts.startSpeaking(getString(R.string.tts_text), mTtsListener);
+					isPlayed=true;
+				}
 
 			} else if (proximity == Proximity.PROXIMITY_NEAR) {
 				toX = nearPosition[0];
 				toY = nearPosition[1];
-				soundPool.play(soundId, 1.0f, 1.0f, 1, -1, 1.5f);
-				isPlay = true;
+				if(preProximity==Proximity.PROXIMITY_IMMEDIATE){
+					if(mTts.isSpeaking()){
+						soundPool.pause(soundId);
+					}
+					else{
+						soundPool.pause(soundId);
+						mTts.startSpeaking(getString(R.string.tts_bye), mTtsListener);
+					}
+
+				}else {
+					soundPool.play(soundId, 1.0f, 1.0f, 1, -1, playRate);
+				}
+
 			} else if (proximity == Proximity.PROXIMITY_FAR) {
 				toX = farPosition[0];
 				toY = farPosition[1];
-				soundPool.play(soundId, 1.0f, 1.0f, 1, -1, 1);
-				isPlay = true;
+				soundPool.play(soundId, 1.0f, 1.0f, 1, -1, playRate);
 			}
 
 		ObjectAnimator animator = ObjectAnimator.ofFloat(userIcon, "translationY", fromY, toY);
@@ -261,6 +372,14 @@ public class RangeFragment extends Fragment implements OnBeaconChangeListener {
 
 	@Override
 	public void onResume() {
+		if(beacon.getProximity()==Proximity.PROXIMITY_NEAR){
+			playRate=0.5f;
+		}else if(beacon.getProximity()==Proximity.PROXIMITY_FAR){
+			playRate=1.5f;
+		}
+
+		playRate = (float) (1/ beacon.getAccuracy());
+		preProximity=beacon.getProximity();
 		updateView(beacon);
 		registerBeaconChangeListener();
 		soundPool.setOnLoadCompleteListener(new SoundPool.OnLoadCompleteListener() {
@@ -270,16 +389,13 @@ public class RangeFragment extends Fragment implements OnBeaconChangeListener {
 				switch (beacon.getProximity())
 				{
 					case PROXIMITY_FAR:
-						soundPool.play(soundId, 1.0f, 1.0f, 1, -1, 1);
-						isPlay = true;
 						break;
 					case PROXIMITY_NEAR:
-						soundPool.play(soundId, 1.0f, 1.0f, 1, -1, 1.5f);
-						isPlay = true;
+						soundPool.play(soundId, 1.0f, 1.0f, 1, -1, playRate);
 						break;
 					case PROXIMITY_IMMEDIATE:
-						soundPool.play(soundId, 1.0f, 1.0f, 1, -1, 2);
-						isPlay = true;
+						mTts.startSpeaking(getString(R.string.tts_text), mTtsListener);
+						isPlayed=true;
 						break;
 					default:
 						break;
@@ -333,5 +449,9 @@ public class RangeFragment extends Fragment implements OnBeaconChangeListener {
 			break;
 		}
 		return super.onOptionsItemSelected(item);
+	}
+	private void showTip(final String str) {
+		mToast.setText(str);
+		mToast.show();
 	}
 }

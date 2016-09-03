@@ -238,7 +238,8 @@ public class DetailFragment extends Fragment implements OnBeaconChangeListener, 
 			transaction.replace(R.id.activity_main_container, activity.distanceFragment, MainActivity.TAG_FRAG_DISTANCE);
 			transaction.addToBackStack(null);
 			transaction.commit();
-		} else if (position == 1) {
+		}
+		else if (position == 1) {
 			activity.rangeFragment = new RangeFragment();
 			Bundle bundle = new Bundle();
 			bundle.putParcelable(MainActivity.BEACON, beacon);

@@ -119,6 +119,13 @@ public class NotificationFragment extends Fragment {
 		super.onResume();
 	}
 
+
+	public void onStop() {
+		player2.stop();
+		player2.release();
+		//player2 = null;
+		super.onStop();
+	}
 	private void initState(Beacon beacon) {
 		if (beacon == null) {
 			switchButton.setChecked(false);
@@ -139,9 +146,7 @@ public class NotificationFragment extends Fragment {
 				activity.onBackPressed();
 				soundPool.release();
 			//	player1.stop();
-				player2.stop();
-				player2.release();
-				player2 = null;
+
 				break;
 
 			default:
@@ -171,12 +176,18 @@ public class NotificationFragment extends Fragment {
 	TimerTask task2 = new TimerTask() {
 		@Override
 		public void run() {
-
-			if (mAccel > 2) {
+			//player2.start();
+			if (mAccel < 2) {
 				//		Toast toast = Toast.makeText(getActivity().getApplicationContext(), "Device 1.", Toast.LENGTH_SHORT);
 				//		toast.show();
 				//		soundPool.play(soundId1,1.0f,1.0f,2,-1,1);
 				player2.start();
+			}
+			else if (mAccel > 2) {
+				//		Toast toast = Toast.makeText(getActivity().getApplicationContext(), "Device 1.", Toast.LENGTH_SHORT);
+				//		toast.show();
+				//		soundPool.play(soundId1,1.0f,1.0f,2,-1,1);
+				player1.start();
 			}
 
 

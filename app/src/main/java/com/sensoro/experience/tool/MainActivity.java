@@ -106,7 +106,7 @@ public class MainActivity extends FragmentActivity {
 	}
 
 
-	
+
 	@Override
 	protected void onResume() {
 		boolean isBTEnable = isBlueEnable();

@@ -213,7 +213,7 @@ public class MainActivity extends FragmentActivity {
 			@Override
 			public void run() {
 				updateGridView();
-				handler.postDelayed(this, 2000);
+				handler.postDelayed(this, 500);
 			}
 		};
 	}

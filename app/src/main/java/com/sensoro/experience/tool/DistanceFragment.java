@@ -343,24 +343,24 @@ public class DistanceFragment extends Fragment implements OnBeaconChangeListener
 			return;
 		}
 		curDistance= (float) beacon.getAccuracy();
-		if((Math.abs(preDistance-curDistance))>5.0f)
+		if((Math.abs(preDistance-curDistance))>1.5f)
 			return;
 		//走近
 		if(preDistance-curDistance>0){
 			if(curDistance>5.0f){
 				process=1;
-			}else if(curDistance<=5.0f&&curDistance>=2.0f){
+			}else if(curDistance<=5.0f&&curDistance>=1.0f){
 				process=2;
-			}else if(curDistance<2.f){
+			}else if(curDistance<1.0f){
 				process=3;
 			}
 		}//远离
 		else if(preDistance-curDistance<0){
 			if(curDistance>5.0f){
 				process=5;
-			}else if(curDistance<=5.0f&&curDistance>=2.0f){
+			}else if(curDistance<=5.0f&&curDistance>=1.0f){
 				process=4;
-			}else if(curDistance<2.0f){
+			}else if(curDistance<1.0f){
 				process=3;
 			}
 		}else if(preDistance-curDistance==0){
@@ -370,9 +370,13 @@ public class DistanceFragment extends Fragment implements OnBeaconChangeListener
 		switch (process)
 		{
 			case 1:
+				mTts.stopSpeaking();
+				mSpeechUnderstander.stopUnderstanding();
 				soundPool.play(soundId1,1.0f,1.0f,1,-1,playRate);
 				break;
 			case 2:
+				mTts.stopSpeaking();
+				mSpeechUnderstander.stopUnderstanding();
 				soundPool.play(soundId1,1.0f,1.0f,1,-1,playRate);
 				break;
 			case 3:
@@ -420,13 +424,18 @@ public class DistanceFragment extends Fragment implements OnBeaconChangeListener
 					soundPool.stop(soundId1);
 					mTts.stopSpeaking();
 					mTts.startSpeaking(getString(R.string.tts_bye),mTtsListener);
+
 					isBye=true;
 					break;
 				}else if(isBye==true){
+					mTts.stopSpeaking();
+					mSpeechUnderstander.stopUnderstanding();
 					soundPool.play(soundId1,1.0f,1.0f,1,-1,playRate);
 				}
 
 			case 5:
+				mTts.stopSpeaking();
+				mSpeechUnderstander.stopUnderstanding();
 				soundPool.play(soundId1,1.0f,1.0f,1,-1,playRate);
 				break;
 			default:
@@ -492,16 +501,19 @@ public class DistanceFragment extends Fragment implements OnBeaconChangeListener
 	}
 
 	@Override
+	public void onDestroy() {
+		mTts.destroy();
+		mSpeechUnderstander.destroy();
+		super.onDestroy();
+	}
+
+	@Override
 	public void onStop() {
 		unregisterBeaconChangeListener();
 		soundPool.autoPause();
-		if(mTts.isSpeaking()){
-			mTts.stopSpeaking();
-		}
-		if(mSpeechUnderstander.isUnderstanding()){// 开始前检查状态
-			mSpeechUnderstander.stopUnderstanding();
-			showTip("停止录音");
-		}
+		mTts.stopSpeaking();
+		mSpeechUnderstander.stopUnderstanding();
+		Log.d(TAG, "onStop: ");
 		super.onStop();
 	}
 

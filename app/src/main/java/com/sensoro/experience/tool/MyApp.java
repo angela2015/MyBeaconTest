@@ -14,7 +14,8 @@ public class MyApp extends Application {
 	@Override
 	public void onCreate() {
 		initSensoro();
-		SpeechUtility.createUtility(MyApp.this, "appid=" + getString(R.string.app_id));
+/*		SpeechUtility.createUtility(MyApp.this, "appid=" + getString(R.string.app_id));*/
+		SpeechUtility.createUtility(MyApp.this, "appid=" + "57cb7cdb");
 
 		super.onCreate();
 	}
